@@ -48,6 +48,21 @@ cargo build --locked
 cargo run --locked
 ```
 
+Run the pinned formal verification suite:
+
+```bash
+npx --yes --package='@informalsystems/quint@0.32.0' quint test \
+  formal/app_state_test.qnt --main=app_state_test --match='.*Test$'
+npx --yes --package='@informalsystems/quint@0.32.0' quint run \
+  formal/app_state.qnt --main=app_state --max-samples=10000 --max-steps=24 \
+  --invariant=app_state_safety
+npx --yes --package='@informalsystems/quint@0.32.0' quint verify \
+  formal/app_state.qnt --main=app_state --max-steps=4 \
+  --invariant=app_state_safety
+```
+
+The exact model, invariants, native/mobile conformance requirements, toolchain details, and proof limits are documented in [Formal application-state verification](../formal/README.md).
+
 Run the real Open-Meteo smoke test explicitly:
 
 ```bash
@@ -68,6 +83,8 @@ The custom QML module is generated during the CXX-Qt build. A standalone lint in
 
 Current unit coverage includes:
 
+- exhaustive bounded exploration of the total application transition kernel;
+- stale async completion suppression, auth-lane cancellation, strict onboarding edges, and invariant preservation;
 - config collection limits and sanitization;
 - URL and symbol validation;
 - secret redaction and merge preservation;

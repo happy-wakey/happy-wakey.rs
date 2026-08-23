@@ -24,6 +24,8 @@ It is not one universal binary. Each operating system needs a native build that 
 flowchart LR
     User["User"] --> QML["Qt Quick / QML UI"]
     QML <--> Backend["CXX-Qt Backend QObject"]
+    Backend <--> Machine["Total Rust state machine"]
+    Machine -. checked against .-> Quint["Quint model / Apalache"]
     Backend --> Workers["Rust worker threads"]
     Workers --> HTTP["Shared Reqwest client"]
     HTTP --> Providers["Calendar, weather, stocks, news, Supabase"]
@@ -47,9 +49,11 @@ The local reminder path is implemented: normalized calendar events feed a 20-sec
 4. The engine loads `MainWindow.qml` from the compiled Qt resource path.
 5. CXX-Qt exposes one QML singleton named `Backend`.
 6. QML reads typed Backend properties and invokes typed Backend methods.
-7. Rust starts blocking network work on worker threads.
-8. Results are queued back onto the Qt GUI thread.
-9. Rust serializes service results as JSON strings; QML parses them into view models.
+7. The private Rust state machine accepts or rejects the requested event.
+8. Accepted asynchronous effects receive a monotonically increasing operation token.
+9. Rust starts blocking network work on worker threads.
+10. Results are queued back onto the Qt GUI thread and may commit only if their token is still active.
+11. Rust serializes service results and the machine snapshot as JSON strings; QML parses them into view models.
 
 The GUI thread never intentionally performs provider HTTP calls.
 
@@ -58,8 +62,9 @@ The GUI thread never intentionally performs provider HTTP calls.
 `src/main.rs` defines a CXX-Qt bridge and a generated `QObject`. Important properties include:
 
 - identity: `logged_in`, `user_email`, `user_id`;
+- formal control state: `auth_state`, `auth_busy`, `onboarding_step_index`, `onboarding_complete`, `app_state_json`;
 - data: `calendar_json`, `calendar_agenda_json`, `weather_json`, `stocks_json`, `news_json`;
-- loading state: one boolean per external data panel;
+- loading state: one derived boolean per external data panel;
 - configuration: `app_config_json`, `onboarding_json`;
 - user feedback: `status_msg`.
 
@@ -69,12 +74,18 @@ Important QML invokables include:
 - `login(provider)` and `logout()`;
 - one refresh method per data panel;
 - `save_config(json)`;
-- `save_onboarding_state(...)`;
+- `onboarding_next()`, `onboarding_previous()`, `onboarding_skip_to_ready()`, and `onboarding_finish()`;
 - `open_url(url)`;
 - `test_notification()`;
 - `reload_config()`.
 
-The bridge is typed at the Qt boundary. JSON is used for collection payloads because CXX-Qt list/model bindings would add more bridge types and code. This is pragmatic for the current size, but larger datasets should eventually use typed Qt models to avoid repeated parse/copy work.
+The bridge is typed at the Qt boundary. QML cannot write authentication, onboarding, readiness, or loading flags. Those properties are projections of the private machine in `src/app_state.rs`; all changes go through its total transition function. JSON is used for collection payloads because CXX-Qt list/model bindings would add more bridge types and code. This is pragmatic for the current size, but larger datasets should eventually use typed Qt models to avoid repeated parse/copy work.
+
+## Formally Checked Control State
+
+The executable Quint specification in `formal/app_state.qnt` defines application readiness, authentication, onboarding, and eight independent asynchronous effect lanes. Unsupported requests fail closed, obsolete completions stutter, authenticated lanes are cancelled on logout, and completed onboarding cannot regress during reconciliation.
+
+The production Rust transition kernel validates invariants before and after every candidate transition and commits atomically only when they hold. Its tests exhaustively enumerate a bounded reachable graph and compare both sides of every state/event pair for determinism. CI also typechecks and executes deterministic Quint traces, samples longer traces with witnesses, and runs Apalache bounded model checking. See [Formal application-state verification](../formal/README.md) for the exact properties, commands, mobile conformance gate, and proof boundary.
 
 ## Threading Model
 
@@ -88,13 +99,15 @@ sequenceDiagram
     participant API as External API
 
     UI->>B: refresh_weather()
-    B->>B: guard loading flag
-    B->>UI: weather_loading = true
+    B->>B: request Weather event
+    B->>B: validate state and issue token
+    B->>UI: derive weather_loading = true
     B->>W: spawn work
     W->>API: bounded/retry-aware GET
     API-->>W: JSON or error
-    W->>B: queue result to Qt thread
-    B->>UI: data + loading=false + status
+    W->>B: queue result + token to Qt thread
+    B->>B: commit only if token is active
+    B->>UI: data + derived loading=false + status
 ```
 
 Weather uses up to five scoped workers so locations load concurrently. Stocks remain a controlled sequential sweep because provider rate limits matter and the watchlist can contain twenty symbols.
@@ -161,6 +174,9 @@ Shared-auth access tokens are cached only in process memory and are cleared on l
 | Path | Responsibility |
 | --- | --- |
 | `src/main.rs` | Application entry, Backend QObject, worker orchestration, Qt event loop |
+| `src/app_state.rs` | Total control-state transition kernel, invariants, operation tokens, bounded state exploration |
+| `formal/app_state.qnt` | Language-neutral executable state model and safety properties |
+| `formal/app_state_test.qnt` | Deterministic cross-platform conformance traces |
 | `src/config.rs` | Config schema, sanitization, merge rules, atomic local persistence |
 | `src/env_config.rs` | `.env`, environment, and CLI precedence |
 | `src/http.rs` | Shared bounded and retry-aware HTTP GET layer |
