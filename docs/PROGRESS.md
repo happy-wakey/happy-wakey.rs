@@ -1,6 +1,6 @@
 # Progress
 
-Status date: July 29, 2026
+Status date: August 22, 2026
 
 ## Current Product State
 
@@ -32,11 +32,21 @@ Happy Wakey is a working native Rust and Qt desktop prototype with a cohesive da
 | Supabase config mirror | Partial | Saves a redacted config snapshot; broader remote config hydration is not wired into startup |
 | Supabase onboarding state | Working in code | Dedicated table and per-user REST reads/upserts; live project access still requires credentials |
 | Supabase RLS schema | Implemented declaratively | Idempotent SQL enables and forces RLS for config and onboarding tables |
+| Formal control-state safety | Implemented and bounded-model-checked | One total Rust transition kernel owns readiness, auth, onboarding, and eight async lanes; Quint traces and Apalache check the matching finite model |
 | Git backup | Not implemented | The repository/path is collected in onboarding and Settings, but no clone/commit/push engine exists |
 | Production packaging | Planned | No checked-in DMG/MSI/AppImage/Flatpak pipeline yet |
 | Automatic updates | Planned | No update channel or signed updater yet |
 
 ## Recent Improvement Pass
+
+The August 2026 formal-safety pass added:
+
+- A private, total Rust application state machine as the sole owner of readiness, authentication, onboarding, and asynchronous operation lifecycles.
+- Fail-closed invalid transitions, atomic invariant checks, independent effect lanes, monotonic operation tokens, and stale callback suppression.
+- Auth-bound operation cancellation on logout so late OAuth, calendar, onboarding, and cloud-reminder results cannot restore or overwrite signed-out state.
+- Machine-derived QML auth, onboarding, and loading properties in place of mutable UI control booleans.
+- An executable Quint specification, ten deterministic conformance traces, randomized invariant/witness exploration, Apalache bounded model checking, and exact-input SHA-256 provenance in CI.
+- A language-neutral mobile conformance gate; no mobile source repository exists in the current Happy Wakey workspace or GitHub organization yet.
 
 The July 2026 modernization pass added or changed the following:
 
@@ -66,6 +76,13 @@ The July 2026 modernization pass added or changed the following:
 - Upgraded the contact email NATS consumer to request/reply so the gateway records delivery only after a matching idempotency key and successful provider outcome.
 
 ## Verification Performed
+
+For the formal-safety pass:
+
+- Rust transition-kernel tests exhaustively explored the reachable graph from every valid persisted authentication/onboarding start through two global operation generations across all eight lanes.
+- Ten deterministic Quint conformance traces passed.
+- 10,000 randomized 24-step Quint traces passed while witnessing every app, auth, lane, and onboarding terminal phase.
+- Apalache discharged all 21 verification conditions through four transitions of the bounded model, including the irreversible onboarding-completion witness, with no invariant violation.
 
 The following checks passed during the modernization pass:
 

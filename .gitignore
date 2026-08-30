@@ -4,3 +4,5 @@ tmp
 temp
 tmp/worktrees
 temp/worktrees
+/_apalache-out
+/.formal-artifacts

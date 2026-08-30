@@ -4,7 +4,7 @@ This directory documents the product and the implementation in:
 
 `/Users/maca5/codes/happy-wakey/happy-wakey.rs`
 
-The documents describe the code as it exists on July 16, 2026. Planned features are labeled explicitly so they are not confused with shipped behavior.
+The documents describe the code as it exists on August 22, 2026. Planned features are labeled explicitly so they are not confused with shipped behavior.
 
 ## Documents
 
@@ -17,6 +17,7 @@ The documents describe the code as it exists on July 16, 2026. Planned features 
 | [Calendar notifications and reminders](./CALENDAR_NOTIFICATIONS_AND_REMINDERS.md) | Daily agenda, provider sync, Gmail/Calendly, scheduling, and server decision |
 | [Data, security, and services](./DATA_SECURITY_AND_SERVICES.md) | Local JSON, Supabase, RLS, OAuth, external APIs, and secret handling |
 | [Development, testing, and roadmap](./DEVELOPMENT_TESTING_AND_ROADMAP.md) | Local setup, test commands, acceptance checks, and implementation priorities |
+| [Formal application-state verification](../formal/README.md) | Cross-platform state contract, invariants, proof commands, and mobile conformance gate |
 
 ## Short Answer
 
