@@ -24,12 +24,23 @@ To regenerate, change the **primary source** (`.cli-flags.toml`, route map, Open
 `schema/*.schema.json`, …) and re-run the generator. Preferred generators thaw,
 write, then `chmod a-w` themselves.
 
+## Gitignored trees
+
+If `generated/` is in `.gitignore`, generated artifacts stay off VCS. Still commit
+this `README.md` (`git add -f generated/README.md` or a `.gitignore` exception) so
+the freeze policy is visible. Example exception:
+
+```
+generated/**
+!generated/README.md
+```
+
 ## Runtime contract (not just compile-time)
 
-JSON Schema is a **cross-check**, not always the primary generator input. The checker
-validates fixtures/examples against Draft 2020-12 at runtime (valid must pass,
-invalid must fail) and compares schema keys to `.cli-flags.toml` env names or
-route-map keys when those exist.
+JSON Schema is a **cross-check**, not always the primary generator input. Unit tests
+and the checked-in runtime checker validate fixtures/examples against Draft 2020-12
+(valid must pass, invalid must fail) and compare schema keys to `.cli-flags.toml`
+environment names or route-map keys when those exist.
 
 ```sh
 python3 scripts/check-generated-contract.py --freeze --require-readonly
