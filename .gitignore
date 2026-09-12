@@ -6,3 +6,7 @@ tmp/worktrees
 temp/worktrees
 /_apalache-out
 /.formal-artifacts
+
+# Sanctioned scratch locations - AGENTS.md requires both, trailing-slash form
+tmp/
+temp/
